@@ -21,16 +21,18 @@ object NinjagoNotificationHelper {
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = context.getString(R.string.notification_channel_desc)
-                enableVibration(true)
+            runCatching {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.notification_channel_name),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.notification_channel_desc)
+                    enableVibration(true)
+                }
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.createNotificationChannel(channel)
             }
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
         }
     }
 
@@ -46,7 +48,14 @@ object NinjagoNotificationHelper {
     }
 
     fun showNewPostNotification(context: Context, post: PostItem) {
-        if (!hasNotificationPermission(context)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         ensureChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -71,7 +80,7 @@ object NinjagoNotificationHelper {
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Новая публикация: ${post.title}")
             .setContentText(contentText)
             .setStyle(
@@ -83,8 +92,12 @@ object NinjagoNotificationHelper {
             .setContentIntent(pendingIntent)
             .build()
 
-        runCatching {
+        try {
             NotificationManagerCompat.from(context).notify(post.id.hashCode(), notification)
+        } catch (_: SecurityException) {
+            // Permission may be revoked concurrently by the user.
+        } catch (_: Exception) {
+            // Ignore transient NotificationManager failures.
         }
     }
 }

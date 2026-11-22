@@ -43,10 +43,14 @@ class HubRepository(private val db: FirebaseFirestore) {
             .whereEqualTo("deleted", false)
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    PostItem::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
+                snapshot.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(
+                            PostItem::class.java,
+                            DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                        )
+                    }.getOrNull()
+                }.sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 val fsErr = extractFirestoreException(error)
@@ -684,10 +688,14 @@ class HubRepository(private val db: FirebaseFirestore) {
             .collection("activations")
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    KeyActivationItem::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedByDescending { it.activatedAt ?: Timestamp(0, 0) }
+                snapshot.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(
+                            KeyActivationItem::class.java,
+                            DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                        )
+                    }.getOrNull()
+                }.sortedByDescending { it.activatedAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 val fsErr = extractFirestoreException(error)
@@ -706,10 +714,14 @@ class HubRepository(private val db: FirebaseFirestore) {
             .collection("admin_roster")
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    AdminRosterItem::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedBy { it.createdAt ?: Timestamp(0, 0) }
+                snapshot.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(
+                            AdminRosterItem::class.java,
+                            DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                        )
+                    }.getOrNull()
+                }.sortedBy { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 val fsErr = extractFirestoreException(error)

@@ -5,15 +5,18 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.data.model.DownloadedRecord
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ninjago_hub_prefs")
 
@@ -29,31 +32,35 @@ class AppPreferences(private val context: Context) {
         val DOWNLOADED_RECORDS_JSON = stringPreferencesKey("downloaded_records_json")
     }
 
-    val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map {
+    private val safeData: Flow<Preferences> = context.dataStore.data.catch { err ->
+        if (err is IOException) emit(emptyPreferences()) else throw err
+    }
+
+    val onboardingCompleted: Flow<Boolean> = safeData.map {
         it[Keys.ONBOARDING_COMPLETED] ?: false
     }
 
-    val notificationsEnabled: Flow<Boolean> = context.dataStore.data.map {
+    val notificationsEnabled: Flow<Boolean> = safeData.map {
         it[Keys.NOTIFICATIONS_ENABLED] ?: true
     }
 
-    val lastSeenPostMillis: Flow<Long> = context.dataStore.data.map {
+    val lastSeenPostMillis: Flow<Long> = safeData.map {
         it[Keys.LAST_SEEN_POST_MILLIS] ?: 0L
     }
 
-    val activeKeyCode: Flow<String?> = context.dataStore.data.map {
+    val activeKeyCode: Flow<String?> = safeData.map {
         it[Keys.ACTIVE_KEY_CODE]
     }
 
-    val failedAdminAttempts: Flow<Int> = context.dataStore.data.map {
+    val failedAdminAttempts: Flow<Int> = safeData.map {
         it[Keys.FAILED_ADMIN_ATTEMPTS] ?: 0
     }
 
-    val adminLockoutUntilMillis: Flow<Long> = context.dataStore.data.map {
+    val adminLockoutUntilMillis: Flow<Long> = safeData.map {
         it[Keys.ADMIN_LOCKOUT_UNTIL_MILLIS] ?: 0L
     }
 
-    val downloadedRecords: Flow<List<DownloadedRecord>> = context.dataStore.data.map { prefs ->
+    val downloadedRecords: Flow<List<DownloadedRecord>> = safeData.map { prefs ->
         parseDownloads(prefs[Keys.DOWNLOADED_RECORDS_JSON].orEmpty())
     }
 

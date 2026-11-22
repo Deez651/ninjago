@@ -187,10 +187,11 @@ object FileDownloadHelper {
 
     fun formatFileSize(bytes: Long): String {
         if (bytes <= 0L) return "0 Б"
+        val ruLocale = java.util.Locale.forLanguageTag("ru")
         return when {
             bytes < 1024L -> "$bytes Б"
-            bytes < 1024L * 1024L -> String.format("%.1f КБ", bytes / 1024.0)
-            else -> String.format("%.2f МБ", bytes / (1024.0 * 1024.0))
+            bytes < 1024L * 1024L -> String.format(ruLocale, "%.1f КБ", bytes / 1024.0)
+            else -> String.format(ruLocale, "%.2f МБ", bytes / (1024.0 * 1024.0))
         }
     }
 }

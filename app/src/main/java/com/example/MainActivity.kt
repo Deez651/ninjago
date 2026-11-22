@@ -4,9 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Key
@@ -16,6 +22,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -33,7 +40,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,6 +58,7 @@ import com.example.ui.screens.AdminLoginDialog
 import com.example.ui.screens.FeedScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.theme.CrimsonError
 import com.example.ui.theme.EmeraldContainer
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.NinjagoHubTheme
@@ -55,7 +66,9 @@ import com.example.ui.theme.ObsidianBg
 import com.example.ui.theme.ObsidianSurface
 import com.example.ui.theme.OnEmeraldContainer
 import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.HubViewModel
+import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
@@ -76,11 +89,57 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun NinjagoHubApp(initialOpenPostId: String?) {
+    val context = LocalContext.current
+    val initError = remember(context) {
+        runCatching {
+            val appCtx = context.applicationContext
+            if (FirebaseApp.getApps(appCtx).isEmpty()) {
+                FirebaseApp.initializeApp(appCtx)
+            }
+            val databaseId = appCtx.getString(R.string.firestore_database_id)
+            FirebaseFirestore.getInstance(databaseId)
+        }.exceptionOrNull()
+    }
+
+    if (initError != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.widthIn(max = 520.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Ошибка инициализации облака",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = CrimsonError,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = initError.localizedMessage ?: "Не удалось подключиться к конфигурации Firebase.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+
     val viewModel: HubViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) {
                     "APPLICATION_KEY missing"
+                }
+                if (FirebaseApp.getApps(app).isEmpty()) {
+                    FirebaseApp.initializeApp(app)
                 }
                 val databaseId = app.getString(R.string.firestore_database_id)
                 val db = FirebaseFirestore.getInstance(databaseId)
