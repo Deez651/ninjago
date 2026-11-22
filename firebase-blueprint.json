@@ -1,0 +1,186 @@
+{
+  "entities": {
+    "AdminAccount": {
+      "title": "AdminAccount",
+      "description": "Salted and double-hashed admin credential record with encrypted shared vault identifier.",
+      "type": "object",
+      "properties": {
+        "login": { "type": "string", "description": "Lowercase admin login identifier" },
+        "salt": { "type": "string", "description": "Random hex salt for credential hashing" },
+        "verifierHash": { "type": "string", "description": "SHA-256 of clientHash for zero-plaintext server verification" },
+        "encryptedVaultId": { "type": "string", "description": "AES-GCM encrypted shared vault ID" },
+        "role": { "type": "string", "enum": ["super_admin", "admin"] },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "sessionProofId": { "type": "string", "description": "Optional burned session ID for non-bootstrap writes" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["login", "salt", "verifierHash", "encryptedVaultId", "role", "active", "createdBy", "createdAt", "updatedAt"]
+    },
+    "AdminSession": {
+      "title": "AdminSession",
+      "description": "Write-only ephemeral admin session token consumed atomically on each privileged write.",
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string" },
+        "authProof": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["accountId", "authProof", "createdAt", "expiresAt"]
+    },
+    "AdminRosterEntry": {
+      "title": "AdminRosterEntry",
+      "description": "Admin directory entry stored inside the encrypted admin vault.",
+      "type": "object",
+      "properties": {
+        "login": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "admin"] },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["login", "role", "active", "createdBy", "sessionProofId", "createdAt", "updatedAt"]
+    },
+    "KeyRegistryEntry": {
+      "title": "KeyRegistryEntry",
+      "description": "Admin-only index of generated access key codes inside the encrypted vault.",
+      "type": "object",
+      "properties": {
+        "keyCode": { "type": "string" },
+        "label": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "deleted": { "type": "boolean" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["keyCode", "label", "createdBy", "deleted", "sessionProofId", "createdAt", "updatedAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Published post metadata visible in public feed and search.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "fileName": { "type": "string" },
+        "fileSizeBytes": { "type": "integer" },
+        "mimeType": { "type": "string" },
+        "hasFile": { "type": "boolean" },
+        "requiresKey": { "type": "boolean" },
+        "downloadCount": { "type": "integer" },
+        "authorLogin": { "type": "string" },
+        "deleted": { "type": "boolean" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "category", "tags", "fileName", "fileSizeBytes", "mimeType", "hasFile", "requiresKey", "downloadCount", "authorLogin", "deleted", "sessionProofId", "createdAt", "updatedAt"]
+    },
+    "PostPayload": {
+      "title": "PostPayload",
+      "description": "Downloadable file URL, inline Base64 content, or chunk metadata for a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "embeddedBase64": { "type": "string" },
+        "chunkCount": { "type": "integer" },
+        "sha256": { "type": "string" },
+        "requiresKey": { "type": "boolean" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "chunkCount", "requiresKey", "sessionProofId", "createdAt", "updatedAt"]
+    },
+    "PostChunk": {
+      "title": "PostChunk",
+      "description": "Chunked Base64 file segment for embedded files up to 2MB.",
+      "type": "object",
+      "properties": {
+        "index": { "type": "integer" },
+        "data": { "type": "string" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["index", "data", "sessionProofId", "createdAt"]
+    },
+    "AccessKey": {
+      "title": "AccessKey",
+      "description": "Generated activation code with configurable maxActivations and optional expiration.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "label": { "type": "string" },
+        "scope": { "type": "string" },
+        "maxActivations": { "type": "integer" },
+        "usedCount": { "type": "integer" },
+        "active": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "lastUsedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "sessionProofId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "label", "scope", "maxActivations", "usedCount", "active", "createdBy", "sessionProofId", "createdAt", "updatedAt"]
+    },
+    "KeyActivation": {
+      "title": "KeyActivation",
+      "description": "Real-time activation log entry under an access key.",
+      "type": "object",
+      "properties": {
+        "keyCode": { "type": "string" },
+        "deviceLabel": { "type": "string" },
+        "deviceHash": { "type": "string" },
+        "activatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["keyCode", "deviceLabel", "deviceHash", "activatedAt"]
+    }
+  },
+  "firestore": {
+    "/admin_accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/AdminAccount" },
+      "description": "Exact-ID lookup only for admin credential verification."
+    },
+    "/admin_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/AdminSession" },
+      "description": "Write-only ephemeral session tokens burned per admin mutation."
+    },
+    "/admin_vaults/{vaultId}/admin_roster/{accountId}": {
+      "schema": { "$ref": "#/entities/AdminRosterEntry" },
+      "description": "Admin accounts roster inside secret vault."
+    },
+    "/admin_vaults/{vaultId}/key_registry/{keyCode}": {
+      "schema": { "$ref": "#/entities/KeyRegistryEntry" },
+      "description": "Admin index of generated access keys inside secret vault."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Published posts catalog readable by all users."
+    },
+    "/post_payloads/{postId}": {
+      "schema": { "$ref": "#/entities/PostPayload" },
+      "description": "Downloadable payload or URL for a post."
+    },
+    "/post_payloads/{postId}/chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/PostChunk" },
+      "description": "Chunked Base64 file segments for a post."
+    },
+    "/access_keys/{keyCode}": {
+      "schema": { "$ref": "#/entities/AccessKey" },
+      "description": "Access keys with max activations and expiration; non-listable by regular users."
+    },
+    "/access_keys/{keyCode}/activations/{activationId}": {
+      "schema": { "$ref": "#/entities/KeyActivation" },
+      "description": "Real-time activation logs per key code."
+    }
+  }
+}

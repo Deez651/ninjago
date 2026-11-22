@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Ninjago Hub</string>
+    <string name="build_version_label">Версия сборки</string>
+    <string name="build_version_value">1.0.26 (NJG-CORE-2026)</string>
+    <string name="telegram_main_url">https://t.me/NinjagoScript</string>
+    <string name="telegram_second_url">https://t.me/EstaxCheats</string>
+    <string name="onboarding_title">Эксклюзивный контент</string>
+    <string name="onboarding_revival_cta">Возраждаем канал вместе! Подпишись на https://t.me/NinjagoScript</string>
+    <string name="onboarding_second_channel_cta">А также подпишись на наш второй канал</string>
+    <string name="notification_channel_name">Новые публикации</string>
+    <string name="notification_channel_desc">Уведомления о новых файлах, скриптах и релизах в Ninjago Hub</string>
+</resources>

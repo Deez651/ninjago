@@ -1,0 +1,343 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // Consumed single-use admin session proof (must exist before write and be deleted in the same WriteBatch)
+    function isConsumedAdminSession(sessionId) {
+      return isValidId(sessionId) &&
+             sessionId.size() >= 16 &&
+             exists(/databases/$(database)/documents/admin_sessions/$(sessionId)) &&
+             !existsAfter(/databases/$(database)/documents/admin_sessions/$(sessionId));
+    }
+
+    function isValidAdminAccount(data) {
+      return data.login is string && data.login.size() >= 2 && data.login.size() <= 32 &&
+             data.login.matches('^[a-z0-9_\\-]+$') &&
+             data.salt is string && data.salt.size() >= 8 && data.salt.size() <= 64 &&
+             data.verifierHash is string && data.verifierHash.size() == 64 &&
+             data.encryptedVaultId is string && data.encryptedVaultId.size() >= 16 && data.encryptedVaultId.size() <= 256 &&
+             data.role in ['super_admin', 'admin'] &&
+             data.active is bool &&
+             data.createdBy is string && data.createdBy.size() >= 2 && data.createdBy.size() <= 32 &&
+             (!('sessionProofId' in data) || (data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminRosterEntry(data) {
+      return data.login is string && data.login.size() >= 2 && data.login.size() <= 32 &&
+             data.role in ['super_admin', 'admin'] &&
+             data.active is bool &&
+             data.createdBy is string && data.createdBy.size() >= 2 && data.createdBy.size() <= 32 &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidKeyRegistryEntry(data) {
+      return data.keyCode is string && data.keyCode.size() >= 4 && data.keyCode.size() <= 40 &&
+             data.label is string && data.label.size() <= 80 &&
+             data.createdBy is string && data.createdBy.size() >= 2 && data.createdBy.size() <= 32 &&
+             data.deleted is bool &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPost(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 4000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 40 &&
+             data.tags is list && data.tags.size() <= 8 &&
+             (data.tags.size() == 0 || data.tags[0] is string) &&
+             data.fileName is string && data.fileName.size() <= 180 &&
+             data.fileSizeBytes is int && data.fileSizeBytes >= 0 && data.fileSizeBytes <= 1073741824 &&
+             data.mimeType is string && data.mimeType.size() <= 100 &&
+             data.hasFile is bool &&
+             data.requiresKey is bool &&
+             data.downloadCount is int && data.downloadCount >= 0 &&
+             data.authorLogin is string && data.authorLogin.size() >= 2 && data.authorLogin.size() <= 32 &&
+             data.deleted is bool &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPostPayload(data) {
+      return data.postId is string && data.postId.size() >= 1 && data.postId.size() <= 128 &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() <= 1000)) &&
+             (!('embeddedBase64' in data) || (data.embeddedBase64 is string && data.embeddedBase64.size() <= 900000)) &&
+             data.chunkCount is int && data.chunkCount >= 0 && data.chunkCount <= 10 &&
+             (!('sha256' in data) || (data.sha256 is string && data.sha256.size() <= 64)) &&
+             data.requiresKey is bool &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPostChunk(data) {
+      return data.index is int && data.index >= 0 && data.index < 10 &&
+             data.data is string && data.data.size() >= 1 && data.data.size() <= 750000 &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAccessKey(data) {
+      return data.code is string && data.code.size() >= 4 && data.code.size() <= 40 &&
+             data.code.matches('^[a-zA-Z0-9_\\-]+$') &&
+             data.label is string && data.label.size() <= 80 &&
+             data.scope is string && data.scope.size() >= 1 && data.scope.size() <= 128 &&
+             data.maxActivations is int && data.maxActivations >= 1 && data.maxActivations <= 100000 &&
+             data.usedCount is int && data.usedCount >= 0 && data.usedCount <= data.maxActivations &&
+             data.active is bool &&
+             (!('expiresAt' in data) || data.expiresAt is timestamp) &&
+             (!('lastUsedAt' in data) || isValidTimestamp(data.lastUsedAt)) &&
+             data.createdBy is string && data.createdBy.size() >= 2 && data.createdBy.size() <= 32 &&
+             data.sessionProofId is string && data.sessionProofId.size() >= 16 && data.sessionProofId.size() <= 64 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidKeyActivation(data) {
+      return data.keyCode is string && data.keyCode.size() >= 4 && data.keyCode.size() <= 40 &&
+             data.deviceLabel is string && data.deviceLabel.size() >= 1 && data.deviceLabel.size() <= 80 &&
+             data.deviceHash is string && data.deviceHash.size() >= 8 && data.deviceHash.size() <= 64 &&
+             isValidTimestamp(data.activatedAt);
+    }
+
+    // 1. Admin Accounts: exact-ID lookup only (no listing), bootstrap or burned-session create/update
+    match /admin_accounts/{accountId} {
+      allow list: if false;
+      allow get: if isValidId(accountId);
+
+      allow create: if isValidId(accountId) &&
+                       incoming().keys().hasAll(['login', 'salt', 'verifierHash', 'encryptedVaultId', 'role', 'active', 'createdBy', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['login', 'salt', 'verifierHash', 'encryptedVaultId', 'role', 'active', 'createdBy', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().login == accountId &&
+                       isValidAdminAccount(incoming()) &&
+                       (
+                         // Initial super-admin bootstrap for deez verified by precomputed double-hash
+                         (accountId == 'deez' &&
+                          !exists(/databases/$(database)/documents/admin_accounts/deez) &&
+                          incoming().role == 'super_admin' &&
+                          incoming().active == true &&
+                          incoming().verifierHash == '1b5283b623def13ac124fd4fad07fab104a9537d0e445382baaa8c47c9a38600') ||
+                         // Any additional admin created by an authenticated admin session
+                         (accountId != 'deez' &&
+                          'sessionProofId' in incoming() &&
+                          isConsumedAdminSession(incoming().sessionProofId))
+                       );
+
+      allow update: if isValidId(accountId) &&
+                       isValidAdminAccount(incoming()) &&
+                       'sessionProofId' in incoming() &&
+                       isConsumedAdminSession(incoming().sessionProofId) &&
+                       incoming().login == existing().login &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['active', 'role', 'salt', 'verifierHash', 'encryptedVaultId', 'sessionProofId', 'updatedAt']);
+
+      allow delete: if false;
+    }
+
+    // 2. Write-only ephemeral admin sessions verified via SHA-256 against admin_accounts.verifierHash
+    match /admin_sessions/{sessionId} {
+      allow get, list, update: if false;
+
+      allow create: if isValidId(sessionId) &&
+                       sessionId.size() >= 16 &&
+                       incoming().keys().hasAll(['accountId', 'authProof', 'createdAt', 'expiresAt']) &&
+                       incoming().keys().hasOnly(['accountId', 'authProof', 'createdAt', 'expiresAt']) &&
+                       isValidId(incoming().accountId) &&
+                       incoming().authProof is string && incoming().authProof.size() == 64 &&
+                       isValidTimestamp(incoming().createdAt) &&
+                       incoming().expiresAt is timestamp && incoming().expiresAt > request.time &&
+                       exists(/databases/$(database)/documents/admin_accounts/$(incoming().accountId)) &&
+                       get(/databases/$(database)/documents/admin_accounts/$(incoming().accountId)).data.active == true &&
+                       hashing.sha256(incoming().authProof.toUtf8()).toHexString().lower() == get(/databases/$(database)/documents/admin_accounts/$(incoming().accountId)).data.verifierHash;
+
+      allow delete: if isValidId(sessionId) &&
+                       sessionId.size() >= 16 &&
+                       exists(/databases/$(database)/documents/admin_sessions/$(sessionId));
+    }
+
+    // 3. Secret admin vault (64-char vaultId decrypted only by authenticated admins)
+    match /admin_vaults/{vaultId} {
+      allow read, write: if false;
+
+      match /admin_roster/{accountId} {
+        allow get, list: if isValidId(vaultId) && vaultId.size() >= 32;
+        allow create: if isValidId(vaultId) && vaultId.size() >= 32 &&
+                         isValidId(accountId) &&
+                         incoming().keys().hasAll(['login', 'role', 'active', 'createdBy', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['login', 'role', 'active', 'createdBy', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                         incoming().login == accountId &&
+                         isValidAdminRosterEntry(incoming()) &&
+                         (
+                           (accountId == 'deez' &&
+                            !exists(/databases/$(database)/documents/admin_vaults/$(vaultId)/admin_roster/deez) &&
+                            incoming().role == 'super_admin') ||
+                           isConsumedAdminSession(incoming().sessionProofId)
+                         );
+        allow update: if isValidId(vaultId) && vaultId.size() >= 32 &&
+                         isValidId(accountId) &&
+                         isValidAdminRosterEntry(incoming()) &&
+                         isConsumedAdminSession(incoming().sessionProofId) &&
+                         incoming().login == existing().login &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['active', 'role', 'sessionProofId', 'updatedAt']);
+        allow delete: if false;
+      }
+
+      match /key_registry/{keyCode} {
+        allow get, list: if isValidId(vaultId) && vaultId.size() >= 32;
+        allow create: if isValidId(vaultId) && vaultId.size() >= 32 &&
+                         isValidId(keyCode) &&
+                         incoming().keys().hasAll(['keyCode', 'label', 'createdBy', 'deleted', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['keyCode', 'label', 'createdBy', 'deleted', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                         incoming().keyCode == keyCode &&
+                         isValidKeyRegistryEntry(incoming()) &&
+                         isConsumedAdminSession(incoming().sessionProofId);
+        allow update: if isValidId(vaultId) && vaultId.size() >= 32 &&
+                         isValidId(keyCode) &&
+                         isValidKeyRegistryEntry(incoming()) &&
+                         isConsumedAdminSession(incoming().sessionProofId) &&
+                         incoming().keyCode == existing().keyCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['label', 'deleted', 'sessionProofId', 'updatedAt']);
+        allow delete: if false;
+      }
+    }
+
+    // 4. Published Posts: public read/list of non-deleted posts, admin writes via burned session, +1 download counter
+    match /posts/{postId} {
+      allow get: if isValidId(postId);
+      allow list: if resource.data.deleted == false;
+
+      allow create: if isValidId(postId) &&
+                       incoming().keys().hasAll(['title', 'description', 'category', 'tags', 'fileName', 'fileSizeBytes', 'mimeType', 'hasFile', 'requiresKey', 'downloadCount', 'authorLogin', 'deleted', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['title', 'description', 'category', 'tags', 'fileName', 'fileSizeBytes', 'mimeType', 'hasFile', 'requiresKey', 'downloadCount', 'authorLogin', 'deleted', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       isValidPost(incoming()) &&
+                       incoming().deleted == false &&
+                       incoming().downloadCount == 0 &&
+                       isConsumedAdminSession(incoming().sessionProofId);
+
+      allow update: if isValidId(postId) &&
+                       isValidPost(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Admin update or soft-delete
+                         (isConsumedAdminSession(incoming().sessionProofId) &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'tags', 'fileName', 'fileSizeBytes', 'mimeType', 'hasFile', 'requiresKey', 'deleted', 'sessionProofId', 'updatedAt'])) ||
+                         // Public download count +1 increment
+                         (existing().deleted == false &&
+                          incoming().downloadCount == existing().downloadCount + 1 &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['downloadCount', 'updatedAt']) &&
+                          isValidTimestamp(incoming().updatedAt))
+                       );
+
+      allow delete: if false;
+    }
+
+    // 5. Post Payloads & Chunks: non-listable, exact postId lookup
+    match /post_payloads/{postId} {
+      allow list: if false;
+      allow get: if isValidId(postId);
+
+      allow create: if isValidId(postId) &&
+                       incoming().keys().hasAll(['postId', 'chunkCount', 'requiresKey', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['postId', 'fileUrl', 'embeddedBase64', 'chunkCount', 'sha256', 'requiresKey', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().postId == postId &&
+                       isValidPostPayload(incoming()) &&
+                       isConsumedAdminSession(incoming().sessionProofId);
+
+      allow update: if isValidId(postId) &&
+                       isValidPostPayload(incoming()) &&
+                       isConsumedAdminSession(incoming().sessionProofId) &&
+                       incoming().postId == existing().postId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['fileUrl', 'embeddedBase64', 'chunkCount', 'sha256', 'requiresKey', 'sessionProofId', 'updatedAt']);
+
+      allow delete: if false;
+
+      match /chunks/{chunkId} {
+        allow get, list: if isValidId(postId);
+        allow create: if isValidId(postId) &&
+                         isValidId(chunkId) &&
+                         incoming().keys().hasAll(['index', 'data', 'sessionProofId', 'createdAt']) &&
+                         incoming().keys().hasOnly(['index', 'data', 'sessionProofId', 'createdAt']) &&
+                         isValidPostChunk(incoming()) &&
+                         isConsumedAdminSession(incoming().sessionProofId);
+        allow update, delete: if false;
+      }
+    }
+
+    // 6. Access Keys: non-listable by regular users; atomic redemption enforced by rules
+    match /access_keys/{keyCode} {
+      allow list: if false;
+      allow get: if isValidId(keyCode);
+
+      allow create: if isValidId(keyCode) &&
+                       incoming().keys().hasAll(['code', 'label', 'scope', 'maxActivations', 'usedCount', 'active', 'createdBy', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['code', 'label', 'scope', 'maxActivations', 'usedCount', 'active', 'expiresAt', 'lastUsedAt', 'createdBy', 'sessionProofId', 'createdAt', 'updatedAt']) &&
+                       incoming().code == keyCode &&
+                       isValidAccessKey(incoming()) &&
+                       incoming().usedCount == 0 &&
+                       isConsumedAdminSession(incoming().sessionProofId);
+
+      allow update: if isValidId(keyCode) &&
+                       isValidAccessKey(incoming()) &&
+                       incoming().code == existing().code &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Admin key management (toggle active, adjust maxActivations, label, expiresAt)
+                         (isConsumedAdminSession(incoming().sessionProofId) &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['label', 'scope', 'maxActivations', 'active', 'expiresAt', 'sessionProofId', 'updatedAt'])) ||
+                         // Public atomic key redemption (+1 usedCount only if active, not expired, and below limit)
+                         (existing().active == true &&
+                          existing().usedCount < existing().maxActivations &&
+                          (!('expiresAt' in existing()) || existing().expiresAt > request.time) &&
+                          incoming().usedCount == existing().usedCount + 1 &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['usedCount', 'lastUsedAt', 'updatedAt']) &&
+                          isValidTimestamp(incoming().lastUsedAt) &&
+                          isValidTimestamp(incoming().updatedAt))
+                       );
+
+      allow delete: if false;
+
+      match /activations/{activationId} {
+        allow get, list: if isValidId(keyCode);
+
+        allow create: if isValidId(keyCode) &&
+                         isValidId(activationId) &&
+                         incoming().keys().hasAll(['keyCode', 'deviceLabel', 'deviceHash', 'activatedAt']) &&
+                         incoming().keys().hasOnly(['keyCode', 'deviceLabel', 'deviceHash', 'activatedAt']) &&
+                         incoming().keyCode == keyCode &&
+                         isValidKeyActivation(incoming()) &&
+                         exists(/databases/$(database)/documents/access_keys/$(keyCode)) &&
+                         getAfter(/databases/$(database)/documents/access_keys/$(keyCode)).data.usedCount == get(/databases/$(database)/documents/access_keys/$(keyCode)).data.usedCount + 1;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Ninjago Hub",
+  "description": "Платформа эксклюзивных публикаций, файлов и скриптов с доступом по ключам и панелью администратора.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
