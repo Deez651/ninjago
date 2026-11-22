@@ -94,7 +94,12 @@ fun NinjagoHubApp(initialOpenPostId: String?) {
         runCatching {
             val appCtx = context.applicationContext
             if (FirebaseApp.getApps(appCtx).isEmpty()) {
-                FirebaseApp.initializeApp(appCtx)
+                val initialized = FirebaseApp.initializeApp(appCtx)
+                if (initialized == null && FirebaseApp.getApps(appCtx).isEmpty()) {
+                    error(
+                        "В собранном APK отсутствует конфигурация Firebase (файл app/google-services.json не попал в сборку на GitHub). Добавьте app/google-services.json в репозиторий и пересоберите APK."
+                    )
+                }
             }
             val databaseId = appCtx.getString(R.string.firestore_database_id)
             FirebaseFirestore.getInstance(databaseId)
