@@ -339,7 +339,7 @@ class HubViewModel(
         if (!post.requiresKey) return true
         val status = activeKeyStatus.value
         return status is ActiveKeyStatus.Valid &&
-            status.key.isCurrentlyValid() &&
+            status.key.isStillActiveForHolder() &&
             status.key.coversPost(post.id)
     }
 
@@ -507,6 +507,11 @@ class HubViewModel(
         fileBytes: ByteArray?,
         inlineScriptText: String?,
         requiresKey: Boolean,
+        createLinkedKey: Boolean = false,
+        linkedKeyCode: String? = null,
+        linkedKeyMaxActivations: Long = 5L,
+        linkedKeyDurationMillis: Long? = null,
+        linkedKeyScopeAll: Boolean = false,
         onPublished: () -> Unit
     ) {
         val session = _adminSession.value ?: return
@@ -549,10 +554,35 @@ class HubViewModel(
                     requiresKey = requiresKey
                 )
             }.onSuccess { res ->
-                res.onSuccess { newSession ->
+                res.onSuccess { (postId, newSession) ->
                     _adminSession.value = newSession
-                    _snackbarMessage.value = "Публикация «$title» опубликована!"
-                    onPublished()
+                    if (requiresKey && createLinkedKey) {
+                        val scope = if (linkedKeyScopeAll) "all" else postId
+                        val expiresAtMillis = linkedKeyDurationMillis?.let { System.currentTimeMillis() + it }
+                        val keyRes = runCatching {
+                            repository.createAccessKey(
+                                session = newSession,
+                                customCode = linkedKeyCode,
+                                label = title.trim().take(40),
+                                scope = scope,
+                                maxActivations = linkedKeyMaxActivations.coerceIn(1L, 100000L),
+                                expiresAtMillis = expiresAtMillis
+                            )
+                        }.getOrElse { Result.failure(it) }
+
+                        keyRes.onSuccess { (createdKey, keySession) ->
+                            _adminSession.value = keySession
+                            _snackbarMessage.value = "VIP-пост опубликован! Ключ: ${createdKey.code}"
+                            onPublished()
+                        }.onFailure { keyErr ->
+                            _adminError.value = "Пост опубликован, но ключ не создан: ${keyErr.message}"
+                            _snackbarMessage.value = "Пост опубликован, но не удалось создать ключ"
+                            onPublished()
+                        }
+                    } else {
+                        _snackbarMessage.value = "Публикация «$title» опубликована!"
+                        onPublished()
+                    }
                 }.onFailure { err ->
                     _adminError.value = err.message ?: "Ошибка публикации"
                 }

@@ -236,11 +236,11 @@ fun AdminKeysTab(
                                     label = { Text("Весь эксклюзив") }
                                 )
                             }
-                            items(keyPosts.take(6)) { post ->
+                            items(keyPosts) { post ->
                                 FilterChip(
                                     selected = selectedScope == post.id,
                                     onClick = { selectedScope = post.id },
-                                    label = { Text(post.title.take(18)) }
+                                    label = { Text(post.title.take(22)) }
                                 )
                             }
                         }
@@ -392,8 +392,14 @@ fun AdminKeysTab(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary
                             )
+                            val scopeTitle = if (key.scope == "all") {
+                                "Весь VIP-контент"
+                            } else {
+                                posts.firstOrNull { it.id == key.scope }?.title?.let { "Файл: ${it.take(22)}" }
+                                    ?: "Только 1 файл"
+                            }
                             Text(
-                                text = if (key.scope == "all") "Все посты" else "Пост",
+                                text = scopeTitle,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = CyanSecondary
                             )

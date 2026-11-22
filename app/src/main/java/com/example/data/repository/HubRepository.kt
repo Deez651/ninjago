@@ -409,7 +409,7 @@ class HubRepository(private val db: FirebaseFirestore) {
         fileUrl: String?,
         fileBytes: ByteArray?,
         requiresKey: Boolean
-    ): Result<AdminSessionState> {
+    ): Result<Pair<String, AdminSessionState>> {
         val cleanTitle = title.trim()
         val cleanDesc = description.trim()
         require(cleanTitle.length in 1..140) { "Заголовок должен быть от 1 до 140 символов." }
@@ -489,7 +489,7 @@ class HubRepository(private val db: FirebaseFirestore) {
                     )
                 )
             }
-        }
+        }.map { updatedSession -> postId to updatedSession }
     }
 
     suspend fun deletePost(session: AdminSessionState, postId: String): Result<AdminSessionState> {

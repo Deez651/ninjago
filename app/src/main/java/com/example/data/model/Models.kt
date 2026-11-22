@@ -68,6 +68,9 @@ data class AccessKeyItem(
     fun isCurrentlyValid(nowMillis: Long = System.currentTimeMillis()): Boolean =
         active && !isExpired(nowMillis) && !isExhausted()
 
+    fun isStillActiveForHolder(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        active && !isExpired(nowMillis)
+
     fun coversPost(postId: String): Boolean =
         scope == "all" || scope == postId
 }
@@ -137,7 +140,7 @@ sealed interface UiState<out T> {
 enum class AccessFilter(val label: String) {
     ALL("Все"),
     OPEN("Открытые"),
-    KEY_ONLY("По ключу")
+    KEY_ONLY("VIP / По ключу")
 }
 
 object PostCategories {
